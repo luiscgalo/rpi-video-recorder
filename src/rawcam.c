@@ -261,6 +261,7 @@ void video_field_cb(SImageData sField) {
 		unFieldOffset = 1;
 	}
 
+	// Interleave received top/bottom field into a temporary FullHD interlaced frame
 	unDestPos = 0;
 	unSourcePos = 0;
 	for (i = 0; i < 540; i++) {
@@ -269,7 +270,10 @@ void video_field_cb(SImageData sField) {
 		memcpy(&g_punBGR24Frame[unDestPos], &punSourceData[unSourcePos], unWidthStep);
 	}
 
+	// 1080i50 video sends top field first so which means that, when a bottom field is received,
+	// a new interlaced video frame is ready...
 	if (sField.unField == FIELD_BOTTOM) {
+		printf("New interlaced frame sent to ISP input!\n");
 		ConvertFrame(g_punBGR24Frame, g_unBGR24FrameSize);
 	}
 }
@@ -432,7 +436,8 @@ void InitRawCam() {
 
 	// set buffer settings
 	output->buffer_size = output->buffer_size_recommended;
-	output->buffer_num = output->buffer_num_recommended;
+	//output->buffer_num = output->buffer_num_recommended;
+	output->buffer_num = 6; // hard-coded buffer num;
 
 	vcos_log_error("Create pool of %d buffers of size %d", output->buffer_num, output->buffer_size);
 	rawcam_pool = mmal_port_pool_create(output, output->buffer_num, output->buffer_size);

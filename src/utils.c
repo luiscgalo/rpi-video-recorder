@@ -120,3 +120,26 @@ void write_regs(int fd, struct cmds_t *regs, int count) {
 	}
 }
 
+void PrintSupportedPortEncodings(MMAL_PORT_T *port) {
+#define MAX_ENCODINGS_NUM 20
+	typedef struct {
+		MMAL_PARAMETER_HEADER_T header;
+		MMAL_FOURCC_T encodings[MAX_ENCODINGS_NUM];
+	} MMAL_SUPPORTED_ENCODINGS_T;
+
+	MMAL_SUPPORTED_ENCODINGS_T sup_encodings = { { MMAL_PARAMETER_SUPPORTED_ENCODINGS, sizeof(sup_encodings) }, { 0 } };
+	if (mmal_port_parameter_get(port, &sup_encodings.header) == MMAL_SUCCESS) {
+		int i;
+		int num_encodings = (sup_encodings.header.size - sizeof(sup_encodings.header))
+				/ sizeof(sup_encodings.encodings[0]);
+		for (i = 0; i < num_encodings; i++) {
+			uint32_t tmp = (int32_t) sup_encodings.encodings[i];
+
+			uint8_t byte0 = (tmp >> 24) & 0xFF;
+			uint8_t byte1 = (tmp >> 16) & 0xFF;
+			uint8_t byte2 = (tmp >> 8) & 0xFF;
+			uint8_t byte3 = tmp & 0xFF;
+			printf("[%i]=%c%c%c%c\n", i, byte3, byte2, byte1, byte0);
+		}
+	}
+}

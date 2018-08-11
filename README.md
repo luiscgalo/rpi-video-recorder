@@ -4,7 +4,7 @@
 This prototype application intents to capture 1080i50 video, recording it as progressive video in a elementary H264 file (1080p25 or 1080p50)
 
 The data processing chain is as follows:
-	HDMI (1080i50) -> TC358743 -> Rawcam (odd/even BGR24 fields) -> ISP (BGR24 to I420) -> ImageFx (deinterlacer) -> H264 video encoder
+	HDMI (1080i50) -> TC358743 -> Rawcam (odd/even BGR24 fields) -> Interlaced Frame (fields merge) -> ISP (BGR24 to I420) -> ImageFx (deinterlacer) -> H264 video encoder
 	
 In order to test this application you should compile the source code as a standard CMake project
 

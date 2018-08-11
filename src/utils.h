@@ -65,4 +65,6 @@ u32 i2c_rd32(int fd, u16 reg);
 void i2c_wr32(int fd, u16 reg, u32 val);
 void write_regs(int fd, struct cmds_t *regs, int count);
 
+void PrintSupportedPortEncodings(MMAL_PORT_T *port);
+
 #endif /* UTILS_H */
