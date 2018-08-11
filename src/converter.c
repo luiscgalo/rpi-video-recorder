@@ -85,7 +85,7 @@ void isp_input_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 }
 
 void enc_output_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
-	printf("converter output data! Size=%i\n", buffer->length);
+	printf("TEST!!! - Image_fx output data Size=%i\n", buffer->length);
 
 	// release buffer back to the pool
 	mmal_buffer_header_release(buffer);
@@ -216,12 +216,12 @@ void InitConverter() {
 	img_fx_param.hdr.size = sizeof(MMAL_PARAMETER_IMAGEFX_PARAMETERS_T);
 
 	// Advanced deinterlacer using QPUs - !!! NOT WORKING !!!
-	/*img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV;
+	img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV;
 	img_fx_param.num_effect_params = 4;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
 	img_fx_param.effect_parameter[2] = 0; // half framerate ?
-	img_fx_param.effect_parameter[3] = 1; // use QPU ?*/
+	img_fx_param.effect_parameter[3] = 1; // use QPU ?
 
 	// Fast deinterlacer (50fps) - Working with some glitches on the output video
 	/*img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
@@ -232,11 +232,11 @@ void InitConverter() {
 
 
 	 // Fast deinterlacer with half frame rate (25fps) - Working OK
-	 img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
+	 /*img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
 	 img_fx_param.num_effect_params = 3;
 	 img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	 img_fx_param.effect_parameter[1] = 0; // frame period
-	 img_fx_param.effect_parameter[2] = 1; // half framerate ?
+	 img_fx_param.effect_parameter[2] = 1; // half framerate ?*/
 
 
 	if (mmal_port_parameter_set(deint_output, &img_fx_param.hdr) != MMAL_SUCCESS) {
