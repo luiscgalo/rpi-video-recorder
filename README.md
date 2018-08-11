@@ -14,11 +14,12 @@ In order to test this application you should compile the source code as a standa
 			make
 	3. Done and you can try to run the application! :)
 	
-NOTE1: This is a work in progress and there are some known issues with this application (choppy movements from the deinterlacer and sporadic crashes)
+NOTE1: Audio is not being handled yet.
+
+NOTE2: This is a work in progress and there are some known issues with this application (choppy movements from the deinterlacer and sporadic crashes)
        Feel free to use it and to suggest improvements.
       
-      
-NOTE2: Due to the amount of data to be processed on the Raspberry Pi (FullHD video in realtime!) there is the need of overclocking it.
+NOTE3: Due to the amount of data to be processed on the Raspberry Pi (FullHD video in realtime!) there is the need of overclocking it.
        My current overclock settings are:
 > arm_freq=1400
 > gpu_mem=200
