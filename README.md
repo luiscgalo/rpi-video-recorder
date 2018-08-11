@@ -20,11 +20,11 @@ NOTE1: This is a work in progress and there are some known issues with this appl
       
 NOTE2: Due to the amount of data to be processed on the Raspberry Pi (FullHD video in realtime!) there is the need of overclocking it.
        My current overclock settings are:
-		> arm_freq=1400
-		> gpu_mem=200
-		> over_voltage=7
-		> core_freq=550
-		> sdram_freq=550
-		> sdram_schmoo=0x02000020
-		> force_turbo=1
-		> boot_delay=1
+> arm_freq=1400
+> gpu_mem=200
+> over_voltage=7
+> core_freq=550
+> sdram_freq=550
+> sdram_schmoo=0x02000020
+> force_turbo=1
+> boot_delay=1
