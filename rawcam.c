@@ -302,6 +302,12 @@ void rawcam_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 
 		if (g_bFirstTopFieldFound == true) {
 			video_field_cb(sField);
+			if (sField.unField == FIELD_BOTTOM)
+				g_bFirstTopFieldFound = false;
+		}
+		else
+		{
+			printf("Dropping valid field as field order wrong\n");
 		}
 	}
 
