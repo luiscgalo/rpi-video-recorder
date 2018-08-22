@@ -180,8 +180,7 @@ void InitConverter() {
 	memset(&img_fx_param, 0, sizeof(MMAL_PARAMETER_IMAGEFX_PARAMETERS_T));
 	img_fx_param.hdr.id = MMAL_PARAMETER_IMAGE_EFFECT_PARAMETERS;
 	img_fx_param.hdr.size = sizeof(MMAL_PARAMETER_IMAGEFX_PARAMETERS_T);
-	
-    /*
+#if 1
     // Advanced deinterlacer using QPUs - !!! NOT WORKING !!!
     img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV;
 	img_fx_param.num_effect_params = 4;
@@ -189,16 +188,15 @@ void InitConverter() {
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
 	img_fx_param.effect_parameter[2] = 0; // half framerate ?
     img_fx_param.effect_parameter[3] = 1; // use QPU ?
-    */
     
-    
+#else
     // Fast deinterlacer (50fps) - Working with some glitches on the output video
     img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
 	img_fx_param.num_effect_params = 3;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
 	img_fx_param.effect_parameter[2] = 0; // half framerate ?
-    
+#endif
     
     /*
     // Fast deinterlacer with half frame rate (50fps) - Working OK
