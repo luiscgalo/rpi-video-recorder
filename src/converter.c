@@ -123,12 +123,12 @@ void InitConverter() {
 
 	isp_input->format->type = MMAL_ES_TYPE_VIDEO;
 	isp_input->format->encoding = MMAL_ENCODING_BGR24;
-	isp_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH, 32);
-	isp_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT, 16);
+	isp_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH*2, 32);
+	isp_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT/2, 16);
 	isp_input->format->es->video.crop.x = 0;
 	isp_input->format->es->video.crop.y = 0;
-	isp_input->format->es->video.crop.width = VIDEO_WIDTH;
-	isp_input->format->es->video.crop.height = VIDEO_HEIGHT;
+	isp_input->format->es->video.crop.width = VIDEO_WIDTH*2;
+	isp_input->format->es->video.crop.height = VIDEO_HEIGHT/2;
 	isp_input->format->es->video.frame_rate.num = 0;
 	isp_input->format->es->video.frame_rate.den = 1;
 	status = mmal_port_format_commit(isp_input);
@@ -212,8 +212,17 @@ void InitConverter() {
 		return;
 	}
 
-	// Setup image_fx input format (equal to ISP output)
-	mmal_format_copy(deint_input->format, isp_output->format);
+	// Setup image_fx input format
+	deint_input->format->type = MMAL_ES_TYPE_VIDEO;
+	deint_input->format->encoding = MMAL_ENCODING_I420;
+	deint_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH, 32);
+	deint_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT, 16);
+	deint_input->format->es->video.crop.x = 0;
+	deint_input->format->es->video.crop.y = 0;
+	deint_input->format->es->video.crop.width = VIDEO_WIDTH;
+	deint_input->format->es->video.crop.height = VIDEO_HEIGHT;
+	deint_input->format->es->video.frame_rate.num = 0;
+	deint_input->format->es->video.frame_rate.den = 1;
 
 	status = mmal_port_format_commit(deint_input);
 	if (status != MMAL_SUCCESS) {
@@ -238,7 +247,9 @@ void InitConverter() {
 
 	printf("Create connection ISP output to image_fx input...\n");
 	status = mmal_connection_create(&conn_isp_deint, isp_output, deint_input,
-	MMAL_CONNECTION_FLAG_TUNNELLING | MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS);
+			MMAL_CONNECTION_FLAG_TUNNELLING |
+			MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS |
+			MMAL_CONNECTION_FLAG_KEEP_PORT_FORMATS);
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to create connection status %d: ISP->image_fx\n", status);
 		return;
