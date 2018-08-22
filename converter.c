@@ -138,7 +138,7 @@ void InitConverter() {
 	}
 
 	isp_input->buffer_size = isp_input->buffer_size_recommended;
-	isp_input->buffer_num = isp_input->buffer_num_recommended;
+	isp_input->buffer_num = 6; //isp_input->buffer_num_recommended;
 
 	// create pool for input data
 	isp_pool_in = mmal_port_pool_create(isp_input, isp_input->buffer_num, isp_input->buffer_size);
@@ -156,7 +156,7 @@ void InitConverter() {
 	}
 
 	isp_output->buffer_size = isp_output->buffer_size_recommended;
-	isp_output->buffer_num = isp_output->buffer_num_recommended;
+	isp_output->buffer_num = 6;//isp_output->buffer_num_recommended;
 
 	// Enable ports and ISP component
 	status = mmal_port_enable(isp_input, isp_input_cb);
@@ -224,7 +224,7 @@ void InitConverter() {
 	}
 
 	deint_input->buffer_size = deint_input->buffer_size_recommended;
-	deint_input->buffer_num = deint_input->buffer_num_recommended;
+	deint_input->buffer_num = 6;//deint_input->buffer_num_recommended;
 
 	// Setup image_fx output format (equal to input format)
 	mmal_format_copy(deint_output->format, deint_input->format);
@@ -240,7 +240,7 @@ void InitConverter() {
 
 	printf("Create connection ISP output to image_fx input...\n");
 	status = mmal_connection_create(&conn_isp_deint, isp_output, deint_input,
-	MMAL_CONNECTION_FLAG_TUNNELLING);
+	MMAL_CONNECTION_FLAG_TUNNELLING | MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS);
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to create connection status %d: ISP->image_fx\n", status);
 		return;
