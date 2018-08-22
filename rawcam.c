@@ -332,7 +332,7 @@ void InitRawCam() {
 	printf("Starting rawcam capture...\n");
 
 	// Setup TC358743 chip
-	i2c_fd = open("/dev/i2c-1", O_RDWR);
+	i2c_fd = open("/dev/i2c-0", O_RDWR);
 	if (!i2c_fd) {
 		vcos_log_error("Couldn't open I2C device");
 		return;
