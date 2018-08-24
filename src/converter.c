@@ -80,7 +80,7 @@ void isp_input_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 }
 
 void enc_output_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
-	printf("Encoder out data (%d bytes)!\n", buffer->length);
+	printf("Encoder out data (%d bytes)! pts %llu\n", buffer->length, buffer->pts);
 
 	if (pFile2 == NULL) {
 		pFile2 = fopen("capture.h264", "wb");
@@ -186,26 +186,24 @@ void InitConverter() {
 	img_fx_param.num_effect_params = 4;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
-	img_fx_param.effect_parameter[2] = 0; // half framerate ?
+	img_fx_param.effect_parameter[2] = 1; // half framerate ?
     img_fx_param.effect_parameter[3] = 1; // use QPU ?
     
-#else
+#elif 1
     // Fast deinterlacer (50fps) - Working with some glitches on the output video
     img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
 	img_fx_param.num_effect_params = 3;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
 	img_fx_param.effect_parameter[2] = 0; // half framerate ?
-#endif
-    
-    /*
+#else     
     // Fast deinterlacer with half frame rate (50fps) - Working OK
     img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
 	img_fx_param.num_effect_params = 3;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period
 	img_fx_param.effect_parameter[2] = 1; // half framerate ?
-    */
+#endif
     
 	if (mmal_port_parameter_set(deint_output, &img_fx_param.hdr) != MMAL_SUCCESS) {
 		printf("Failed to configure deinterlacer output port (mode)\n");
@@ -245,7 +243,7 @@ void InitConverter() {
 	deint_output->buffer_size = deint_output->buffer_size_recommended;
 	deint_output->buffer_num = deint_output->buffer_num_recommended;
 
-	printf("Create connection ISP output to image_fx input...\n");
+/*	printf("Create connection ISP output to image_fx input...\n");
 	status = mmal_connection_create(&conn_isp_deint, isp_output, deint_input,
 			MMAL_CONNECTION_FLAG_TUNNELLING |
 			MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS |
@@ -259,7 +257,7 @@ void InitConverter() {
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to enable connection ISP->image_fx\n");
 		return;
-	}
+	}*/
 
 	// ################################## encoder ######################################################
 
@@ -272,14 +270,35 @@ void InitConverter() {
 
 	enc_input = pEncoder->input[0];
 //	enc_output = pEncoder->output[0];
-
+#if 0
 	enc_input->format->es->video.frame_rate.num = 0;
 	enc_input->format->es->video.frame_rate.den = 1;
 	enc_input->buffer_size = enc_input->buffer_size_recommended;
 	enc_input->buffer_num = enc_input->buffer_num_recommended;
 
+	enc_input->format->type = MMAL_ES_TYPE_VIDEO;
+	enc_input->format->encoding = MMAL_ENCODING_I420;
+	enc_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH, 32);
+	enc_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT, 16);
+	enc_input->format->es->video.crop.x = 0;
+	enc_input->format->es->video.crop.y = 0;
+	enc_input->format->es->video.crop.width = VIDEO_WIDTH;
+	enc_input->format->es->video.crop.height = VIDEO_HEIGHT;
+	enc_input->format->es->video.frame_rate.num = 0;
+	enc_input->format->es->video.frame_rate.den = 1;
+	status = mmal_port_format_commit(enc_input);
+	if (status != MMAL_SUCCESS) {
+		printf("Failed to commit enc_input format!\n");
+		return;
+	}
+#endif
+
 	printf("Create connection ISP output to image_fx input...\n");
-	status = mmal_connection_create(&conn_deint_enc, deint_output, enc_input, MMAL_CONNECTION_FLAG_TUNNELLING);
+	status = mmal_connection_create(&conn_deint_enc, isp_output, enc_input,
+			MMAL_CONNECTION_FLAG_TUNNELLING
+			| MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS
+			/*| MMAL_CONNECTION_FLAG_KEEP_PORT_FORMAT */
+			);
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to create connection status %d: Deint->encoder\n", status);
 		return;
