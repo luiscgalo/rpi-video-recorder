@@ -264,14 +264,14 @@ void InitConverter() {
 	// ################################## encoder ######################################################
 
 	// create H264 video encoder component
-	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER, &pEncoder);
+	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &pEncoder);
 	if (status != MMAL_SUCCESS) {
 		printf("Unable to create video encoder component!\n");
 		return;
 	}
 
 	enc_input = pEncoder->input[0];
-	enc_output = pEncoder->output[0];
+//	enc_output = pEncoder->output[0];
 
 	enc_input->format->es->video.frame_rate.num = 0;
 	enc_input->format->es->video.frame_rate.den = 1;
@@ -285,7 +285,7 @@ void InitConverter() {
 		return;
 	}
 
-	mmal_format_copy(enc_output->format, enc_input->format);
+/*	mmal_format_copy(enc_output->format, enc_input->format);
 	enc_output->format->encoding = MMAL_ENCODING_H264;
 	enc_output->format->bitrate = 1000 * 1000 * 4; // 4 Mbps output video
 	enc_output->format->es->video.frame_rate.num = 0;
@@ -332,7 +332,7 @@ void InitConverter() {
 		printf("Error enabling deinterlacer output port!\n");
 		return;
 	}
-
+*/
 	status = mmal_connection_enable(conn_deint_enc);
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to enable connection Deint->encoder\n");
@@ -358,7 +358,7 @@ void InitConverter() {
 		printf("Error enabling encoder!\n");
 		return;
 	}
-
+/*
 	// Send buffers for output pool
 	for (uint8_t i = 0; i < enc_output->buffer_num; i++) {
 		MMAL_BUFFER_HEADER_T *buffer = mmal_queue_get(enc_pool_out->queue);
@@ -373,7 +373,7 @@ void InitConverter() {
 			exit(1);
 		}
 	}
-
+*/
 	printf("Image converter init OK!\n");
 }
 
@@ -395,7 +395,7 @@ void CloseConverter() {
 
 	// disable ports
 	mmal_port_disable(isp_input);
-	mmal_port_disable(enc_output);
+//	mmal_port_disable(enc_output);
 
 	// disable ISP
 	status = mmal_component_disable(pISP);
