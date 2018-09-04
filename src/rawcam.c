@@ -255,10 +255,10 @@ void video_field_cb(SImageData sField) {
 
 	if (sField.unField == FIELD_TOP) {
 		//printf("Top field...\n");
-		unFieldOffset = 0;
+		unFieldOffset = 1;
 	} else {
 		//printf("Bottom field...\n");
-		unFieldOffset = 1;
+		unFieldOffset = 0;
 	}
 
 	unDestPos = 0;
