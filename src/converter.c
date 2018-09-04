@@ -33,21 +33,19 @@ MMAL_PORT_T *deint_input = NULL;
 MMAL_PORT_T *deint_output = NULL;
 
 // H264 Encoder variables
-MMAL_COMPONENT_T *pEncoder = NULL;
+MMAL_COMPONENT_T *pRenderer = NULL;
 MMAL_PORT_T *enc_input = NULL;
 MMAL_PORT_T *enc_output = NULL;
 MMAL_POOL_T *enc_pool_out = NULL;
 
 // Connections between components
 MMAL_CONNECTION_T* conn_isp_deint = NULL;
-MMAL_CONNECTION_T* conn_deint_enc = NULL;
+MMAL_CONNECTION_T* conn_deint_renderer = NULL;
 
 // hard-coded constants for test purposes only
 #define VIDEO_WIDTH 	1920
 #define VIDEO_HEIGHT	1080
 
-int64_t pts = 0;
-FILE * pFile2 = NULL;
 
 void ConvertFrame(uint8_t* punBuffer, const uint32_t unBufferSize) {
 	MMAL_BUFFER_HEADER_T *buffer;
@@ -58,10 +56,7 @@ void ConvertFrame(uint8_t* punBuffer, const uint32_t unBufferSize) {
 		mmal_buffer_header_mem_lock(buffer);
 		buffer->flags = MMAL_BUFFER_HEADER_VIDEO_FLAG_INTERLACED | MMAL_BUFFER_HEADER_VIDEO_FLAG_TOP_FIELD_FIRST;
 		buffer->length = unBufferSize;
-
-		//buffer->pts = buffer->dts = MMAL_TIME_UNKNOWN;
-		buffer->pts = buffer->dts = pts;
-		pts += 1000000 / 25;
+		buffer->pts = buffer->dts = MMAL_TIME_UNKNOWN;
 
 		memcpy(buffer->data, punBuffer, unBufferSize);
 		mmal_buffer_header_mem_unlock(buffer);
@@ -77,34 +72,6 @@ void ConvertFrame(uint8_t* punBuffer, const uint32_t unBufferSize) {
 
 void isp_input_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 	mmal_buffer_header_release(buffer);
-}
-
-void enc_output_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
-	printf("Encoder out data (%d bytes)! pts %llu\n", buffer->length, buffer->pts);
-
-	if (pFile2 == NULL) {
-		pFile2 = fopen("capture.h264", "wb");
-	}
-
-	// These are the header bytes, save them for final output
-	mmal_buffer_header_mem_lock(buffer);
-	fwrite(buffer->data, 1, buffer->length, pFile2);
-	mmal_buffer_header_mem_unlock(buffer);
-
-	// release buffer back to the pool
-	mmal_buffer_header_release(buffer);
-
-	// and send one back to the port (if still open)
-	if (port->is_enabled) {
-		MMAL_STATUS_T status;
-		MMAL_BUFFER_HEADER_T* new_buffer = mmal_queue_get(enc_pool_out->queue);
-
-		if (new_buffer)
-			status = mmal_port_send_buffer(port, new_buffer);
-
-		if (!new_buffer || status != MMAL_SUCCESS)
-			printf("Unable to return a buffer to the encoder port!\n");
-	}
 }
 
 void InitConverter() {
@@ -123,12 +90,12 @@ void InitConverter() {
 
 	isp_input->format->type = MMAL_ES_TYPE_VIDEO;
 	isp_input->format->encoding = MMAL_ENCODING_BGR24;
-	isp_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH*2, 32);
-	isp_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT/2, 16);
+	isp_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH, 32);
+	isp_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT, 16);
 	isp_input->format->es->video.crop.x = 0;
 	isp_input->format->es->video.crop.y = 0;
-	isp_input->format->es->video.crop.width = VIDEO_WIDTH*2;
-	isp_input->format->es->video.crop.height = VIDEO_HEIGHT/2;
+	isp_input->format->es->video.crop.width = VIDEO_WIDTH;
+	isp_input->format->es->video.crop.height = VIDEO_HEIGHT;
 	isp_input->format->es->video.frame_rate.num = 0;
 	isp_input->format->es->video.frame_rate.den = 1;
 	status = mmal_port_format_commit(isp_input);
@@ -138,7 +105,7 @@ void InitConverter() {
 	}
 
 	isp_input->buffer_size = isp_input->buffer_size_recommended;
-	isp_input->buffer_num = 6; //isp_input->buffer_num_recommended;
+	isp_input->buffer_num = 4;
 
 	// create pool for input data
 	isp_pool_in = mmal_port_pool_create(isp_input, isp_input->buffer_num, isp_input->buffer_size);
@@ -156,7 +123,7 @@ void InitConverter() {
 	}
 
 	isp_output->buffer_size = isp_output->buffer_size_recommended;
-	isp_output->buffer_num = 6;//isp_output->buffer_num_recommended;
+	isp_output->buffer_num = 4;
 
 	// Enable ports and ISP component
 	status = mmal_port_enable(isp_input, isp_input_cb);
@@ -180,30 +147,14 @@ void InitConverter() {
 	memset(&img_fx_param, 0, sizeof(MMAL_PARAMETER_IMAGEFX_PARAMETERS_T));
 	img_fx_param.hdr.id = MMAL_PARAMETER_IMAGE_EFFECT_PARAMETERS;
 	img_fx_param.hdr.size = sizeof(MMAL_PARAMETER_IMAGEFX_PARAMETERS_T);
-#if 1
-    // Advanced deinterlacer using QPUs - !!! NOT WORKING !!!
+
+    // Advanced deinterlacer using QPUs
     img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_ADV;
 	img_fx_param.num_effect_params = 4;
 	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
 	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
-	img_fx_param.effect_parameter[2] = 1; // half framerate ?
-    img_fx_param.effect_parameter[3] = 1; // use QPU ?
-    
-#elif 1
-    // Fast deinterlacer (50fps) - Working with some glitches on the output video
-    img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
-	img_fx_param.num_effect_params = 3;
-	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
-	img_fx_param.effect_parameter[1] = 0; // frame period (1000000 * 1 / 25);
 	img_fx_param.effect_parameter[2] = 0; // half framerate ?
-#else     
-    // Fast deinterlacer with half frame rate (50fps) - Working OK
-    img_fx_param.effect = MMAL_PARAM_IMAGEFX_DEINTERLACE_FAST;
-	img_fx_param.num_effect_params = 3;
-	img_fx_param.effect_parameter[0] = 3; // interlaced input frame with both fields / top field first
-	img_fx_param.effect_parameter[1] = 0; // frame period
-	img_fx_param.effect_parameter[2] = 1; // half framerate ?
-#endif
+    img_fx_param.effect_parameter[3] = 1; // use QPU ?
     
 	if (mmal_port_parameter_set(deint_output, &img_fx_param.hdr) != MMAL_SUCCESS) {
 		printf("Failed to configure deinterlacer output port (mode)\n");
@@ -229,7 +180,7 @@ void InitConverter() {
 	}
 
 	deint_input->buffer_size = deint_input->buffer_size_recommended;
-	deint_input->buffer_num = 6;//deint_input->buffer_num_recommended;
+	deint_input->buffer_num = 6;
 
 	// Setup image_fx output format (equal to input format)
 	mmal_format_copy(deint_output->format, deint_input->format);
@@ -241,9 +192,9 @@ void InitConverter() {
 	}
 
 	deint_output->buffer_size = deint_output->buffer_size_recommended;
-	deint_output->buffer_num = deint_output->buffer_num_recommended;
+	deint_output->buffer_num = 6;
 
-/*	printf("Create connection ISP output to image_fx input...\n");
+	printf("Create connection ISP output to image_fx input...\n");
 	status = mmal_connection_create(&conn_isp_deint, isp_output, deint_input,
 			MMAL_CONNECTION_FLAG_TUNNELLING |
 			MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS |
@@ -257,44 +208,21 @@ void InitConverter() {
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to enable connection ISP->image_fx\n");
 		return;
-	}*/
+	}
 
-	// ################################## encoder ######################################################
+	// ################################## renderer ######################################################
 
-	// create H264 video encoder component
-	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &pEncoder);
+	// renderer component
+	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &pRenderer);
 	if (status != MMAL_SUCCESS) {
 		printf("Unable to create video encoder component!\n");
 		return;
 	}
 
-	enc_input = pEncoder->input[0];
-//	enc_output = pEncoder->output[0];
-#if 0
-	enc_input->format->es->video.frame_rate.num = 0;
-	enc_input->format->es->video.frame_rate.den = 1;
-	enc_input->buffer_size = enc_input->buffer_size_recommended;
-	enc_input->buffer_num = enc_input->buffer_num_recommended;
+	enc_input = pRenderer->input[0];
 
-	enc_input->format->type = MMAL_ES_TYPE_VIDEO;
-	enc_input->format->encoding = MMAL_ENCODING_I420;
-	enc_input->format->es->video.width = VCOS_ALIGN_UP(VIDEO_WIDTH, 32);
-	enc_input->format->es->video.height = VCOS_ALIGN_UP(VIDEO_HEIGHT, 16);
-	enc_input->format->es->video.crop.x = 0;
-	enc_input->format->es->video.crop.y = 0;
-	enc_input->format->es->video.crop.width = VIDEO_WIDTH;
-	enc_input->format->es->video.crop.height = VIDEO_HEIGHT;
-	enc_input->format->es->video.frame_rate.num = 0;
-	enc_input->format->es->video.frame_rate.den = 1;
-	status = mmal_port_format_commit(enc_input);
-	if (status != MMAL_SUCCESS) {
-		printf("Failed to commit enc_input format!\n");
-		return;
-	}
-#endif
-
-	printf("Create connection ISP output to image_fx input...\n");
-	status = mmal_connection_create(&conn_deint_enc, isp_output, enc_input,
+	printf("Create connection image_fx output to renderer input...\n");
+	status = mmal_connection_create(&conn_deint_renderer, deint_output, enc_input,
 			MMAL_CONNECTION_FLAG_TUNNELLING
 			| MMAL_CONNECTION_FLAG_KEEP_BUFFER_REQUIREMENTS
 			/*| MMAL_CONNECTION_FLAG_KEEP_PORT_FORMAT */
@@ -304,55 +232,7 @@ void InitConverter() {
 		return;
 	}
 
-/*	mmal_format_copy(enc_output->format, enc_input->format);
-	enc_output->format->encoding = MMAL_ENCODING_H264;
-	enc_output->format->bitrate = 1000 * 1000 * 4; // 4 Mbps output video
-	enc_output->format->es->video.frame_rate.num = 0;
-	enc_output->format->es->video.frame_rate.den = 1;
-	status = mmal_port_format_commit(enc_output);
-	if (status != MMAL_SUCCESS) {
-		printf("Video encoder output format couldn't be set!\n");
-		return;
-	}
-
-	enc_output->buffer_size = enc_output->buffer_size_recommended;
-	enc_output->buffer_num = enc_output->buffer_num_recommended;
-
-	printf("H264 encoder buffers In=%i | Out=%i\n", enc_input->buffer_num, enc_output->buffer_num);
-
-	// set H264 profile and level
-	MMAL_PARAMETER_VIDEO_PROFILE_T param2;
-	param2.hdr.id = MMAL_PARAMETER_PROFILE;
-	param2.hdr.size = sizeof(param2);
-	param2.profile[0].profile = MMAL_VIDEO_PROFILE_H264_HIGH;
-	param2.profile[0].level = MMAL_VIDEO_LEVEL_H264_4;
-	status = mmal_port_parameter_set(enc_output, &param2.hdr);
-	if (status != MMAL_SUCCESS) {
-		printf("Unable to set H264 profile!\n");
-		return;
-	}
-
-	// Set keyframe interval
-	MMAL_PARAMETER_UINT32_T param = { { MMAL_PARAMETER_INTRAPERIOD, sizeof(param) }, 500 };
-	status = mmal_port_parameter_set(enc_output, &param.hdr);
-	if (status != MMAL_SUCCESS) {
-		printf("Unable to set intraperiod!\n");
-		return;
-	}
-
-	enc_pool_out = mmal_port_pool_create(enc_output, enc_output->buffer_num, enc_output->buffer_size);
-	if (enc_pool_out == NULL) {
-		printf("Failed to create encoder output pool!\n");
-	}
-
-	// Enable output port
-	status = mmal_port_enable(enc_output, enc_output_callback);
-	if (status != MMAL_SUCCESS) {
-		printf("Error enabling deinterlacer output port!\n");
-		return;
-	}
-*/
-	status = mmal_connection_enable(conn_deint_enc);
+	status = mmal_connection_enable(conn_deint_renderer);
 	if (status != MMAL_SUCCESS) {
 		printf("Failed to enable connection Deint->encoder\n");
 		return;
@@ -372,27 +252,12 @@ void InitConverter() {
 		return;
 	}
 
-	status = mmal_component_enable(pEncoder);
+	status = mmal_component_enable(pRenderer);
 	if (status != MMAL_SUCCESS) {
 		printf("Error enabling encoder!\n");
 		return;
 	}
-/*
-	// Send buffers for output pool
-	for (uint8_t i = 0; i < enc_output->buffer_num; i++) {
-		MMAL_BUFFER_HEADER_T *buffer = mmal_queue_get(enc_pool_out->queue);
 
-		if (!buffer) {
-			printf("Buffer is NULL!\n");
-			exit(1);
-		}
-		status = mmal_port_send_buffer(enc_output, buffer);
-		if (status != MMAL_SUCCESS) {
-			printf("mmal_port_send_buffer failed deint on buffer %p, status %d\n", buffer, status);
-			exit(1);
-		}
-	}
-*/
 	printf("Image converter init OK!\n");
 }
 
@@ -401,20 +266,15 @@ void CloseConverter() {
 
 	printf("Closing converter...\n");
 
-	if (pFile2 != NULL) {
-		fclose(pFile2);
-	}
-
 	// disable and destroy connection between ISP and deinterlacer
 	mmal_connection_disable(conn_isp_deint);
 	mmal_connection_destroy(conn_isp_deint);
 
-	mmal_connection_disable(conn_deint_enc);
-	mmal_connection_destroy(conn_deint_enc);
+	mmal_connection_disable(conn_deint_renderer);
+	mmal_connection_destroy(conn_deint_renderer);
 
 	// disable ports
 	mmal_port_disable(isp_input);
-//	mmal_port_disable(enc_output);
 
 	// disable ISP
 	status = mmal_component_disable(pISP);
@@ -428,14 +288,14 @@ void CloseConverter() {
 		printf("Failed to disable ISP component!\n");
 	}
 
-	// disable encoder
-	status = mmal_component_disable(pEncoder);
+	// disable renderer
+	status = mmal_component_disable(pRenderer);
 	if (status != MMAL_SUCCESS) {
-		printf("Failed to disable Encoder component!\n");
+		printf("Failed to disable Renderer component!\n");
 	}
 
 	// destroy components
 	mmal_component_destroy(pISP);
 	mmal_component_destroy(pImageFx);
-	mmal_component_destroy(pEncoder);
+	mmal_component_destroy(pRenderer);
 }
