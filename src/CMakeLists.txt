@@ -4,7 +4,7 @@ project(camlive)
 
 
 #set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-function -Werror-implicit-function-declaration -Wno-missing-braces -Wno-missing-field-initializers ${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-aliasing")
-set(CMAKE_C_FLAGS "-O3 -Wall -Wextra")
+set(CMAKE_C_FLAGS "-O3 -Wall -Wextra -g")
 
 #set(EXTRA_C_FLAGS "-march=armv8-a+crc -mfpu=neon-fp-armv8 -mtune=cortex-a53")
 
@@ -12,7 +12,7 @@ include_directories("/opt/vc/include/")
 link_directories("/opt/vc/lib/")
 
 set(SRC
-	utils.c
+    utils.c
     main.c
     converter.c
     rawcam.c

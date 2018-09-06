@@ -10,11 +10,6 @@
 #include "tc358743_regs.h"
 #include "converter.h"
 
-// Do the GPIO waggling from here, except that needs root access, plus
-// there is variation on pin allocation between the various Pi platforms.
-// Provided for reference, but needs tweaking to be useful.
-//#define DO_PIN_CONFIG
-
 bool g_bFirstTopFieldFound = false;
 uint8_t* g_punBGR24Frame = NULL;
 uint32_t g_unBGR24FrameSize = 0;
@@ -255,13 +250,12 @@ void video_field_cb(SImageData sField) {
 
 	if (sField.unField == FIELD_TOP) {
 		//printf("Top field...\n");
-		unFieldOffset = 0;
+		unFieldOffset = 1;
 	} else {
 		//printf("Bottom field...\n");
-		unFieldOffset = 1;
+		unFieldOffset = 0;
 	}
 
-	// Interleave received top/bottom field into a temporary FullHD interlaced frame
 	unDestPos = 0;
 	unSourcePos = 0;
 	for (i = 0; i < 540; i++) {
@@ -270,10 +264,7 @@ void video_field_cb(SImageData sField) {
 		memcpy(&g_punBGR24Frame[unDestPos], &punSourceData[unSourcePos], unWidthStep);
 	}
 
-	// 1080i50 video sends top field first so which means that, when a bottom field is received,
-	// a new interlaced video frame is ready...
 	if (sField.unField == FIELD_BOTTOM) {
-		printf("New interlaced frame sent to ISP input!\n");
 		ConvertFrame(g_punBGR24Frame, g_unBGR24FrameSize);
 	}
 }
@@ -298,6 +289,7 @@ void rawcam_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 		if (buffer->flags & MMAL_BUFFER_HEADER_FLAG_CODECSIDEINFO) {
 			//printf("Bottom field (%d bytes)\n", buffer->length);
 			sField.unField = FIELD_BOTTOM;
+            
 		} else {
 			//printf("Top field (%d bytes)\n", buffer->length);
 			sField.unField = FIELD_TOP;
@@ -306,6 +298,13 @@ void rawcam_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer) {
 
 		if (g_bFirstTopFieldFound == true) {
 			video_field_cb(sField);
+			if (sField.unField == FIELD_BOTTOM){
+				g_bFirstTopFieldFound = false;
+            }
+		}
+		else
+		{
+			printf("Dropping valid field as field order wrong\n");
 		}
 	}
 
@@ -330,7 +329,7 @@ void InitRawCam() {
 	printf("Starting rawcam capture...\n");
 
 	// Setup TC358743 chip
-	i2c_fd = open("/dev/i2c-1", O_RDWR);
+	i2c_fd = open("/dev/i2c-0", O_RDWR);
 	if (!i2c_fd) {
 		vcos_log_error("Couldn't open I2C device");
 		return;
@@ -436,8 +435,7 @@ void InitRawCam() {
 
 	// set buffer settings
 	output->buffer_size = output->buffer_size_recommended;
-	//output->buffer_num = output->buffer_num_recommended;
-	output->buffer_num = 6; // hard-coded buffer num;
+	output->buffer_num = 4;
 
 	vcos_log_error("Create pool of %d buffers of size %d", output->buffer_num, output->buffer_size);
 	rawcam_pool = mmal_port_pool_create(output, output->buffer_num, output->buffer_size);
