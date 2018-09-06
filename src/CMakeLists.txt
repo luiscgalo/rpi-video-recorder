@@ -4,7 +4,7 @@ project(camlive)
 
 
 #set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-unused-function -Werror-implicit-function-declaration -Wno-missing-braces -Wno-missing-field-initializers ${CMAKE_C_FLAGS} -std=gnu99 -fno-strict-aliasing")
-set(CMAKE_C_FLAGS "-O3 -Wall -Wextra -g")
+set(CMAKE_C_FLAGS "-O0 -Wall -Wextra -g")
 
 #set(EXTRA_C_FLAGS "-march=armv8-a+crc -mfpu=neon-fp-armv8 -mtune=cortex-a53")
 
